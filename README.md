@@ -10,6 +10,7 @@ A Neovim plugin for handling Ansible vault encrypted files.
 - Maintains encryption when saving files
 - Supports custom vault password file patterns
 - Integrates with Ansible vault commands
+- Encrypt or decrypt single yaml value with command `AnsibleToggleVaultLine`
 
 ## Installation
 
@@ -54,11 +55,21 @@ Default configuration:
 
 ## Usage
 
+### Whole file encryption
+
 1. Place your vault password in a `.vault_pass` or `.vault-pass` file in your project directory
 2. Open an encrypted vault file
 3. The plugin will automatically detect and decrypt the file
 4. Edit the file normally
 5. Save with `:w` to encrypt and save the file
+
+### Value encryption
+
+1. Place your cursor on the line which you want encrypt or decrypt
+2. Run command `AnsibleToggleVaultLine`
+   - Encrypted line will be decrypted and clear value will be encrypted
+
+NOTE: Multiline encryption are not supported
 
 ## Contributing
 
