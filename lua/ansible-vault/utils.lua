@@ -262,8 +262,9 @@ end
 --- Normalize vault identities configuration
 --- Convert string format to object format for consistent handling
 --- @param config table Configuration table
+--- @param file_path string Optional file path for base path resolution
 --- @return table normalized_identities List of normalized identity objects
-function M.normalize_vault_identities(config)
+function M.normalize_vault_identities(config, file_path)
   local normalized = {}
   
   if not config or not config.vault_identities then
@@ -275,9 +276,10 @@ function M.normalize_vault_identities(config)
       -- Parse string format and convert to object format
       local identity, password_source, error_msg = M.parse_vault_id_format(identity_config)
       if not error_msg then
+        local base_path = file_path and vim.fn.fnamemodify(file_path, ":h") or nil
         local normalized_item = {
           name = identity,
-          password_source = password_source and M.resolve_password_source_path(password_source) or nil,
+          password_source = password_source and M.resolve_password_source_path(password_source, base_path) or nil,
           raw_format = identity_config
         }
         table.insert(normalized, normalized_item)
@@ -286,7 +288,8 @@ function M.normalize_vault_identities(config)
       -- Already object format, just resolve the path
       local normalized_item = vim.tbl_deep_extend("force", {}, identity_config)
       if normalized_item.password_source then
-        normalized_item.password_source = M.resolve_password_source_path(normalized_item.password_source)
+        local base_path = file_path and vim.fn.fnamemodify(file_path, ":h") or nil
+        normalized_item.password_source = M.resolve_password_source_path(normalized_item.password_source, base_path)
       end
       table.insert(normalized, normalized_item)
     end
