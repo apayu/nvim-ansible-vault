@@ -29,10 +29,11 @@ function M.build_ansible_vault_args(identities)
 end
 
 --- Get available vault identities from config
+--- @param file_path string Optional file path for legacy mode
 --- @return table identities List of available identity objects
-function M.get_available_identities()
+function M.get_available_identities(file_path)
   if M.config.vault_identities then
-    return utils.normalize_vault_identities(M.config)
+    return utils.normalize_vault_identities(M.config, file_path)
   else
     -- Fallback to old format
     local legacy_identities = {}
@@ -53,9 +54,10 @@ function M.get_available_identities()
 end
 
 --- Get default identity
+--- @param file_path string Optional file path for legacy mode
 --- @return table|nil identity Default identity object or nil
-function M.get_default_identity()
-  local identities = M.get_available_identities()
+function M.get_default_identity(file_path)
+  local identities = M.get_available_identities(file_path)
   if #identities > 0 then
     return identities[1]
   end
@@ -68,13 +70,13 @@ end
 function M.get_identities_for_file(file_path)
   -- For now, just return all available identities
   -- TODO: Implement actual detection based on file content
-  local available = M.get_available_identities()
+  local available = M.get_available_identities(file_path)
   if #available > 0 then
     return available
   end
   
   -- Fallback to default
-  local default = M.get_default_identity()
+  local default = M.get_default_identity(file_path)
   return default and { default } or {}
 end
 
@@ -129,7 +131,7 @@ function M.setup_buffer(buf, file_path, identities)
   M.encrypted_buffers[buf] = {
     file_path = file_path,
     identities = identities,
-    default_identity = identities[1] or M.get_default_identity(),
+    default_identity = identities[1] or M.get_default_identity(file_path),
   }
 
   vim.api.nvim_buf_set_option(buf, "buftype", "acwrite")
@@ -231,9 +233,8 @@ function M.handle_vault_file()
           end
         end
       )
-    else
-      vim.notify("No vault identities found", vim.log.levels.WARN)
     end
+    -- Silently ignore if no identities found, like the original version
   end
 end
 
@@ -246,7 +247,7 @@ function M.encrypt_line(current_line_num, yaml_key, line_indent, yaml_value, ide
     return false
   end
   
-  identity = identity or M.get_default_identity()
+  identity = identity or M.get_default_identity(vim.fn.expand("%:p"))
   if not identity then
     vim.notify("No vault identity available for encryption", vim.log.levels.WARN)
     return false
@@ -375,16 +376,29 @@ function M.setup(opts)
     M.config = vim.tbl_deep_extend("force", M.config, opts)
   end
 
-  -- Validate vault identities configuration
+  -- Validate vault identities configuration format only
   if M.config.vault_identities then
-    local valid, errors = utils.validate_vault_id_config(M.config)
-    if not valid then
-      vim.notify("Vault ID configuration errors:\n" .. table.concat(errors, "\n"), vim.log.levels.ERROR)
-      return
+    for i, identity_config in ipairs(M.config.vault_identities) do
+      if type(identity_config) == "string" then
+        local identity, password_source, error_msg = utils.parse_vault_id_format(identity_config)
+        if error_msg then
+          vim.notify("Vault ID configuration error at " .. i .. ": " .. error_msg, vim.log.levels.ERROR)
+          return
+        end
+      elseif type(identity_config) == "table" then
+        if not identity_config.name then
+          vim.notify("Vault ID configuration error at " .. i .. ": missing name", vim.log.levels.ERROR)
+          return
+        end
+        if not identity_config.password_source then
+          vim.notify("Vault ID configuration error at " .. i .. ": missing password_source", vim.log.levels.ERROR)
+          return
+        end
+      else
+        vim.notify("Vault ID configuration error at " .. i .. ": invalid format", vim.log.levels.ERROR)
+        return
+      end
     end
-    
-    -- Normalize vault identities
-    M.config.vault_identities = utils.normalize_vault_identities(M.config)
   end
 
   local augroup = vim.api.nvim_create_augroup("AnsibleVault", { clear = true })
