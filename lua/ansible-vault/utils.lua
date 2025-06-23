@@ -188,7 +188,13 @@ function M.resolve_password_source_path(password_source, base_path)
   end
   
   if not base_path then
-    base_path = vim.fn.getcwd()
+    -- Use current buffer's directory instead of getcwd()
+    local current_file = vim.fn.expand("%:p")
+    if current_file and current_file ~= "" then
+      base_path = vim.fn.fnamemodify(current_file, ":h")
+    else
+      base_path = vim.fn.getcwd()
+    end
   end
   
   -- Handle absolute path
@@ -271,7 +277,7 @@ function M.normalize_vault_identities(config)
       if not error_msg then
         local normalized_item = {
           name = identity,
-          password_source = password_source and M.resolve_password_source_path(password_source, vim.fn.getcwd()) or nil,
+          password_source = password_source and M.resolve_password_source_path(password_source) or nil,
           raw_format = identity_config
         }
         table.insert(normalized, normalized_item)
@@ -280,7 +286,7 @@ function M.normalize_vault_identities(config)
       -- Already object format, just resolve the path
       local normalized_item = vim.tbl_deep_extend("force", {}, identity_config)
       if normalized_item.password_source then
-        normalized_item.password_source = M.resolve_password_source_path(normalized_item.password_source, vim.fn.getcwd())
+        normalized_item.password_source = M.resolve_password_source_path(normalized_item.password_source)
       end
       table.insert(normalized, normalized_item)
     end

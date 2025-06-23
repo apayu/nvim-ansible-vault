@@ -55,6 +55,24 @@ require("ansible-vault").setup({
 })
 ```
 
+### File Patterns
+
+Customize which files should be automatically detected as vault files:
+
+```lua
+require("ansible-vault").setup({
+    patterns = {
+        "*/host_vars/*/vault.yml",      -- Default: host variables vault files
+        "*/group_vars/*/vault.yml",     -- Default: group variables vault files
+        "*/vault.yml",                  -- Any vault.yml file
+        "*/secrets/*.yml",              -- Any .yml file in secrets directories
+        "*/encrypted/*"                 -- Any file in encrypted directories
+    }
+})
+```
+
+The default patterns match Ansible's standard directory structure. Files matching these patterns will be automatically processed when opened.
+
 ## Requirements
 
 - Neovim >= 0.8.0
