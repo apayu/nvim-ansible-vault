@@ -14,14 +14,18 @@ M.encrypted_buffers = {}
 
 --- Build ansible vault arguments from identities
 --- @param identities table List of identity objects
+--- @param check_exists boolean If true, only include password files that exist
 --- @return table args List of command arguments
-function M.build_ansible_vault_args(identities)
+function M.build_ansible_vault_args(identities, check_exists)
   local args = {}
   
   for _, identity in ipairs(identities) do
     if identity.password_source then
-      table.insert(args, "--vault-id")
-      table.insert(args, identity.name .. "@" .. identity.password_source)
+      -- If check_exists is true, only add if file exists
+      if not check_exists or vim.fn.filereadable(identity.password_source) == 1 then
+        table.insert(args, "--vault-id")
+        table.insert(args, identity.name .. "@" .. identity.password_source)
+      end
     end
   end
   
@@ -102,7 +106,7 @@ function M.save_encrypted_file(buf, force)
   vim.fn.writefile(lines, tmp)
 
   local args = {"ansible-vault", "encrypt"}
-  vim.list_extend(args, M.build_ansible_vault_args(info.identities))
+  vim.list_extend(args, M.build_ansible_vault_args(info.identities, false))
   table.insert(args, "--encrypt-vault-id")
   table.insert(args, info.default_identity.name)
   table.insert(args, tmp)
@@ -176,7 +180,7 @@ function M.open_with_vault(file_path, identities)
   local current_buf = vim.api.nvim_get_current_buf()
 
   local args = {"ansible-vault", "view"}
-  vim.list_extend(args, M.build_ansible_vault_args(identities))
+  vim.list_extend(args, M.build_ansible_vault_args(identities, true))
   table.insert(args, file_path)
   
   local content = vim.fn.system(args)
@@ -296,7 +300,7 @@ function M.decrypt_line(current_line_num, yaml_key, line_indent, yaml_value)
     "-e", "@" .. yaml_file
   }
   
-  vim.list_extend(args, M.build_ansible_vault_args(identities))
+  vim.list_extend(args, M.build_ansible_vault_args(identities, true))
   
   local result = vim.fn.system(args)
   if vim.v.shell_error == 0 then
